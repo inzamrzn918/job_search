@@ -36,10 +36,30 @@ async def parse_resume(
         print(f"CRITICAL ERROR in /resume/parse: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error parsing resume: {str(e)}")
 
-@router.get("/s")
+from pydantic import BaseModel
+from datetime import datetime
+from typing import Dict, Any, List
+from sqlalchemy.orm import defer
+
+# Response Schema to exclude raw_text
+class ResumeResponse(BaseModel):
+    id: int
+    filename: str
+    parsed_data: Dict[str, Any]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+@router.get("/s", response_model=List[ResumeResponse])
 async def get_resumes(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    result = await db.execute(select(Resume).where(Resume.user_id == current_user.id).order_by(Resume.created_at.desc()))
+    result = await db.execute(
+        select(Resume)
+        .where(Resume.user_id == current_user.id)
+        .options(defer(Resume.raw_text))
+        .order_by(Resume.created_at.desc())
+    )
     return result.scalars().all()

@@ -33,9 +33,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setLoading(false);
     }, []);
 
-    useEffect(() => {
-        checkAuth();
-    }, [checkAuth]);
+    const logout = useCallback(() => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+    }, []);
 
     const login = async (credentials: any) => {
         const data = await APIService.login(credentials);
@@ -49,11 +51,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return await APIService.register(userData);
     };
 
-    const logout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setUser(null);
-    };
+    useEffect(() => {
+        checkAuth();
+        APIService.setUnauthorizedCallback(logout);
+    }, [checkAuth, logout]);
 
     return (
         <AuthContext.Provider value={{ user, loading, login, register, logout, isAuthenticated: !!user }}>

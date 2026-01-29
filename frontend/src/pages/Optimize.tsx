@@ -1,11 +1,20 @@
 import React from 'react';
-import type { ResumeData, JobDetails } from '../types';
+import { CheckCircle, AlertTriangle, Zap, ArrowRight, Wand2 } from 'lucide-react';
+import ResumeEditor from '../components/ResumeEditor';
+import type { ResumeData, JobDetails, MatchResult } from '../types';
+
+interface Suggestion {
+    category: string;
+    advice: string;
+    rephrased_text?: string;
+}
 
 interface OptimizeProps {
     resumeContext: ResumeData | null;
     jdContext: JobDetails | null;
-    suggestions: { category: string; advice: string; rephrased_text?: string }[];
-    coverLetter: string;
+    matchResult: MatchResult | null;
+    suggestions: Suggestion[];
+    coverLetter?: string;
     loading: boolean;
     handleOptimize: () => void;
 }
@@ -13,108 +22,131 @@ interface OptimizeProps {
 const Optimize: React.FC<OptimizeProps> = ({
     resumeContext,
     jdContext,
+    matchResult,
     suggestions,
-    coverLetter,
     loading,
     handleOptimize
 }) => {
-    const handleExportPDF = (content: string, title: string) => {
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) return;
-        printWindow.document.write(`
-          <html>
-            <head>
-              <title>${title}</title>
-              <style>
-                body { font-family: 'Inter', sans-serif; line-height: 1.6; padding: 40px; color: #1e293b; }
-                h1 { color: #6366f1; border-bottom: 2px solid #6366f1; padding-bottom: 10px; }
-                .content { white-space: pre-wrap; margin-top: 20px; }
-              </style>
-            </head>
-            <body>
-              <h1>${title}</h1>
-              <div class="content">${content}</div>
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
-        printWindow.print();
-    };
+    const score = matchResult?.result.score || 0;
+    const missingSkills = matchResult?.result.missing_skills || [];
 
     return (
-        <div className="animate-fade-in" style={{ maxWidth: '1000px', margin: '0 auto' }}>
-            <h2 style={{ marginBottom: '8px' }}>Application Optimizer</h2>
-            <p className="text-muted" style={{ marginBottom: '32px' }}>Tailored resume suggestions and cover letters for {jdContext?.parsed_data.title || 'selected job'}.</p>
+        <div className="flex h-screen bg-[#101922] animate-fade-in overflow-hidden">
+            {/* Main Editor Area */}
+            <div className="flex-1 flex flex-col min-w-0">
+                <header className="flex justify-between items-center px-8 py-5 border-b border-slate-800 bg-[#101922] flex-shrink-0">
+                    <div>
+                        <h2 className="text-xl font-bold text-white">Resume Optimizer</h2>
+                        <p className="text-sm text-slate-400">Tailoring your resume for: <span className="text-white font-medium">{jdContext?.parsed_data.title || 'Selected Job'}</span> at <span className="text-white font-medium">{jdContext?.parsed_data.company || 'Target Company'}</span></p>
+                    </div>
+                    <div className="flex gap-3">
+                        <button className="bg-[#1a222c] text-white border border-slate-700 hover:bg-slate-800 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            Preview PDF
+                        </button>
+                        <button className="bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-colors">
+                            <ArrowRight size={16} /> Export
+                        </button>
+                    </div>
+                </header>
 
-            {!jdContext || !resumeContext ? (
-                <div className="glass-card" style={{ textAlign: 'center', padding: '40px' }}>
-                    <p className="text-muted">Select or extract a job and upload a resume to start optimization.</p>
+                <div className="flex-1 overflow-y-auto p-8">
+                    <ResumeEditor content={resumeContext?.raw_text || ""} onChange={() => { }} />
                 </div>
-            ) : (
-                <div className="grid-layout" style={{ gridTemplateColumns: 'minmax(300px, 1fr) minmax(400px, 1.5fr)' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                        <div className="glass-card">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                <h4>Resume Tailoring</h4>
-                                <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '12px' }} onClick={handleOptimize} disabled={loading}>
-                                    {loading ? 'Analyzing...' : 'Generate Suggestions'}
-                                </button>
-                            </div>
+            </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                {loading && suggestions.length === 0 ? (
-                                    <>
-                                        <div className="shimmer-loading" style={{ height: '60px', borderRadius: '12px' }}></div>
-                                        <div className="shimmer-loading" style={{ height: '60px', borderRadius: '12px' }}></div>
-                                        <div className="shimmer-loading" style={{ height: '60px', borderRadius: '12px' }}></div>
-                                    </>
-                                ) : (
-                                    suggestions.length > 0 ? suggestions.map((s, i) => (
-                                        <div key={i} style={{ padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', borderLeft: '3px solid var(--primary)' }}>
-                                            <p style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>{s.category}</p>
-                                            <p style={{ fontSize: '14px', lineHeight: '1.4' }}>{s.advice}</p>
-                                            {s.rephrased_text && (
-                                                <div style={{ marginTop: '8px', padding: '8px', background: 'rgba(0,0,0,0.2)', fontSize: '12px', fontStyle: 'italic', border: '1px dashed var(--border-color)' }}>
-                                                    "{s.rephrased_text}"
-                                                </div>
-                                            )}
-                                        </div>
-                                    )) : (
-                                        <p className="text-muted" style={{ fontSize: '14px', textAlign: 'center', padding: '20px' }}>No suggestions generated yet.</p>
-                                    )
-                                )}
-                            </div>
+            {/* AI Analysis Sidebar */}
+            <aside className="w-[400px] bg-[#1a222c] border-l border-slate-800 flex flex-col">
+                <div className="p-6 border-b border-slate-800">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-white flex items-center gap-2">
+                            <Zap className="text-yellow-400" size={18} /> AI Analysis
+                        </h3>
+                        {/* Score Gauge Visual */}
+                        <div className="relative w-12 h-12 flex items-center justify-center">
+                            <svg className="transform -rotate-90 w-12 h-12">
+                                <circle cx="24" cy="24" r="20" stroke="#334155" strokeWidth="4" fill="transparent" />
+                                <circle
+                                    cx="24" cy="24" r="20"
+                                    stroke={score >= 80 ? "#10b981" : score >= 50 ? "#eab308" : "#ef4444"}
+                                    strokeWidth="4"
+                                    fill="transparent"
+                                    strokeDasharray="125.6"
+                                    strokeDashoffset={125.6 - (125.6 * score) / 100}
+                                />
+                            </svg>
+                            <span className="absolute text-xs font-bold text-white">{score}</span>
                         </div>
                     </div>
+                    <p className="text-sm text-slate-400 mb-4">
+                        {score >= 80
+                            ? <><span className="text-emerald-400 font-bold">Excellent Match!</span> Your resume is well-tailored.</>
+                            : score >= 50
+                                ? <><span className="text-yellow-400 font-bold">Good Match</span>, but missing directly mentioned skills.</>
+                                : <><span className="text-red-400 font-bold">Low Match</span>. Needs significant optimization.</>
+                        }
+                    </p>
+                    <button
+                        onClick={handleOptimize}
+                        disabled={loading || !jdContext}
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white p-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {loading ? 'Analyzing...' : <><Wand2 size={16} /> Auto-Optimize Resume</>}
+                    </button>
+                    {!jdContext && <p className="text-xs text-red-400 mt-2 text-center">Select a job from Tracker to enable optimization.</p>}
+                </div>
 
-                    <div className="glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h4>AI Cover Letter</h4>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '11px', background: 'none', border: '1px solid var(--primary)', color: 'var(--primary)' }} onClick={() => {
-                                    if (coverLetter) {
-                                        navigator.clipboard.writeText(coverLetter);
-                                        alert("Cover letter copied to clipboard!");
-                                    }
-                                }}>Copy</button>
-                                <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '11px' }} onClick={() => handleExportPDF(coverLetter, `Cover Letter - ${jdContext?.parsed_data.company}`)} disabled={!coverLetter}>PDF</button>
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    {/* Critical Issues */}
+                    {missingSkills.length > 0 && (
+                        <div>
+                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Missing Skills</h4>
+                            <div className="space-y-3">
+                                <div className="bg-[#131b24] p-3 rounded-lg border border-red-500/30 flex gap-3">
+                                    <AlertTriangle className="text-red-400 flex-shrink-0" size={16} />
+                                    <div>
+                                        <p className="text-sm text-white font-medium mb-1">Keywords Detected</p>
+                                        <p className="text-xs text-slate-400 mb-2">
+                                            {missingSkills.slice(0, 5).join(", ")}
+                                            {missingSkills.length > 5 && ` +${missingSkills.length - 5} more`}
+                                            {" are missing from your resume."}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div style={{ flex: 1, background: 'rgba(0,0,0,0.2)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border-color)', minHeight: '400px', whiteSpace: 'pre-wrap', lineHeight: '1.6', fontSize: '15px' }}>
-                            {loading && !coverLetter ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    <div className="shimmer-loading" style={{ height: '20px', width: '90%' }}></div>
-                                    <div className="shimmer-loading" style={{ height: '20px', width: '85%' }}></div>
-                                    <div className="shimmer-loading" style={{ height: '20px', width: '95%' }}></div>
-                                    <div className="shimmer-loading" style={{ height: '20px', width: '80%' }}></div>
+                    )}
+
+                    {/* Suggestions */}
+                    <div>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Suggestions ({suggestions.length})</h4>
+                        <div className="space-y-3">
+                            {suggestions.length > 0 ? suggestions.map((s, i) => (
+                                <div key={i} className="bg-[#131b24] p-3 rounded-lg border border-slate-700 flex flex-col gap-2">
+                                    <div className="flex gap-2">
+                                        <CheckCircle className="text-blue-400 flex-shrink-0 mt-0.5" size={16} />
+                                        <div>
+                                            <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider bg-blue-400/10 px-1.5 py-0.5 rounded">{s.category}</span>
+                                            <p className="text-sm text-slate-300 mt-1">{s.advice}</p>
+                                        </div>
+                                    </div>
+                                    {s.rephrased_text && (
+                                        <div className="ml-6 bg-[#101922] p-2 rounded text-xs text-slate-400 italic border border-slate-800">
+                                            "{s.rephrased_text}"
+                                        </div>
+                                    )}
                                 </div>
-                            ) : (
-                                coverLetter || 'Click "Generate Suggestions" to create a tailored cover letter.'
+                            )) : (
+                                <div className="bg-[#131b24] p-3 rounded-lg border border-slate-700 flex gap-3">
+                                    <CheckCircle className="text-blue-400 flex-shrink-0" size={16} />
+                                    <p className="text-xs text-slate-300">
+                                        {loading ? "Generating suggestions..." : "Run optimization to see AI suggestions tailored to this job."}
+                                    </p>
+                                </div>
                             )}
                         </div>
                     </div>
                 </div>
-            )}
+            </aside>
         </div>
     );
 };

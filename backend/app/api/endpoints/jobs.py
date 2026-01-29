@@ -40,24 +40,26 @@ async def extract_job(
                 "parsed_data": existing.parsed_data
             }
 
-        extractor = JobExtractor() # Instantiated JobExtractor
-        result = await extractor.extract(url) # Changed to extractor.extract
+        extractor = JobExtractor()
+        result = await extractor.extract_from_url(url)
+        
+        parsed = result["parsed_data"]
         
         db_job = Job(
-            user_id=current_user.id, # Added user_id
+            user_id=current_user.id,
             url=url,
-            title=result["title"], # Adjusted based on new extractor output
-            company=result["company"], # Adjusted based on new extractor output
-            location=result["location"], # Adjusted based on new extractor output
-            description=result["description"], # Adjusted based on new extractor output
-            parsed_data=result, # Storing the full result as parsed_data
+            title=parsed.get("title", "Unknown Job"),
+            company=parsed.get("company", "Unknown Company"),
+            location=parsed.get("location", "Remote"),
+            description=parsed.get("description", ""),
+            parsed_data=parsed,
             status="wishlist"
         )
         db.add(db_job)
         await db.commit()
         await db.refresh(db_job)
         
-        return {**result, "id": db_job.id, "status": db_job.status} # Added status to return
+        return {**parsed, "id": db_job.id, "status": db_job.status}
     except Exception as e:
         print(f"ERROR in /job/extract: {str(e)}") # Changed print statement
         raise HTTPException(status_code=500, detail=f"Error extracting job: {str(e)}")
@@ -267,3 +269,68 @@ async def generate_cover_letter(
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating cover letter: {str(e)}")
+class ExternalMatchRequest(BaseModel):
+    resume_id: int
+    job_json: str
+
+@router.post("/job/match-external")
+async def match_external_job(
+    request: ExternalMatchRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        resume = await db.scalar(select(Resume).where((Resume.id == request.resume_id) & (Resume.user_id == current_user.id)))
+        if not resume:
+            raise HTTPException(status_code=404, detail="Resume not found")
+        
+        # job_json is a stringified JSON from frontend, containing title, description etc.
+        # We need to parse it back to dict, or just extract text.
+        try:
+            job_data = json.loads(request.job_json)
+        except:
+             raise HTTPException(status_code=400, detail="Invalid job JSON")
+            
+        # Calculate score using the same engine
+        # result structure: {"result": {"score": ..., "justification": ...}}
+        result = await engine.calculate_score(resume.raw_text, json.dumps(job_data))
+        
+        return {
+            "score": result["result"]["score"],
+            "justification": result["result"]["justification"]
+        }
+    except Exception as e:
+        print(f"Error matching external: {e}")
+        raise HTTPException(status_code=500, detail=f"Error calculating score: {str(e)}")
+
+@router.get("/job/search")
+async def search_jobs(
+    query: str, 
+    limit: int = 50, # Increased default limit
+    skip: int = 0,
+    country: Optional[str] = None,
+    domain: Optional[str] = None,
+    work_type: Optional[str] = None,
+    source: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
+    from ...services.job_search import JobSearchService
+    service = JobSearchService()
+    results = await service.search_remote_jobs(
+        query=query, 
+        limit=limit, 
+        skip=skip,
+        country=country,
+        domain=domain,
+        work_type=work_type,
+        source=source
+    )
+    return results
+
+@router.get("/job/filters")
+async def get_job_filters(
+    current_user: User = Depends(get_current_user)
+):
+    from ...services.job_search import JobSearchService
+    service = JobSearchService()
+    return service.get_available_filters()

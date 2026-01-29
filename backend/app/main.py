@@ -32,6 +32,16 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(jobs.router, prefix="/api", tags=["jobs"])
 app.include_router(resume.router, prefix="/api", tags=["resume"])
 app.include_router(coach.router, prefix="/api", tags=["coach"])
+from app.api.endpoints import billing
+app.include_router(billing.router, prefix="/api", tags=["billing"])
+from app.api.endpoints import files, notifications, two_factor
+app.include_router(files.router, prefix="/api", tags=["files"])
+app.include_router(notifications.router, prefix="/api", tags=["notifications"])
+app.include_router(two_factor.router, prefix="/api", tags=["2fa"])
+
+from fastapi.staticfiles import StaticFiles
+# Mount static directory to serve uploads
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 if __name__ == "__main__":
     import uvicorn

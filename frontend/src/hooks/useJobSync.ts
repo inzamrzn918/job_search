@@ -66,7 +66,7 @@ export const useJobSync = (isAuthenticated: boolean) => {
                     setCoverLetter('');
                     const res = await APIService.calculateScore(resumeContext.id, jdContext.id);
                     setMatchResult(res);
-                    const qRes = await APIService.generateQuestions(resumeContext.raw_text, JSON.stringify(jdContext.parsed_data));
+                    const qRes = await APIService.generateQuestions(resumeContext.id, JSON.stringify(jdContext.parsed_data));
                     setQuestions(qRes.questions);
                     const jobsRes = await APIService.getJobs(resumeContext.id);
                     setJobs(mapJobs(jobsRes));
@@ -94,36 +94,38 @@ export const useJobSync = (isAuthenticated: boolean) => {
         }
     };
 
-    const handleJobExtract = async (mode: 'url' | 'manual', input: string) => {
+    const handleJobExtract = async (mode: 'url' | 'manual', input: string): Promise<JobDetails | null> => {
         setLoading(true);
         try {
             const result = mode === 'url'
                 ? await APIService.extractJob(input)
                 : await APIService.parseManualJob(input);
             setJdContext(result);
-            return true;
+            return result;
         } catch (err) {
             alert('Error processing job');
-            return false;
+            return null;
         } finally {
             setLoading(false);
         }
     };
 
-    const handleAddJobToTracker = async () => {
-        if (!jdContext) return;
-        const existing = jobs.find(j => j.id === jdContext.id?.toString());
-        if (!existing && jdContext.id) {
+    const handleAddJobToTracker = async (jobOverride?: JobDetails) => {
+        const jobToAdd = jobOverride || jdContext;
+        if (!jobToAdd) return;
+
+        const existing = jobs.find(j => j.id === jobToAdd.id?.toString());
+        if (!existing && jobToAdd.id) {
             const newJob: Job = {
-                id: jdContext.id.toString(),
-                title: jdContext.parsed_data.title,
-                company: jdContext.parsed_data.company,
-                location: jdContext.parsed_data.location,
+                id: jobToAdd.id.toString(),
+                title: jobToAdd.parsed_data.title,
+                company: jobToAdd.parsed_data.company,
+                location: jobToAdd.parsed_data.location,
                 score: matchResult?.result.score || 0,
                 status: 'wishlist',
-                interview_date: jdContext.interview_date,
-                interview_notes: jdContext.interview_notes,
-                details: jdContext
+                interview_date: jobToAdd.interview_date,
+                interview_notes: jobToAdd.interview_notes,
+                details: jobToAdd
             };
             setJobs(prev => [newJob, ...prev]);
         }
@@ -156,11 +158,11 @@ export const useJobSync = (isAuthenticated: boolean) => {
     };
 
     const fetchAnswer = async (q: string) => {
-        if (!resumeContext || !jdContext) return;
+        if (!resumeContext?.id || !jdContext) return;
         setSelectedQuestion(q);
         setLoading(true);
         try {
-            const res = await APIService.generateAnswer(q, resumeContext.raw_text, JSON.stringify(jdContext.parsed_data));
+            const res = await APIService.generateAnswer(q, resumeContext.id, JSON.stringify(jdContext.parsed_data));
             setAnswer(res.answer);
         } catch (err) {
             setAnswer("Error generating answer");
