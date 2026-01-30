@@ -88,6 +88,37 @@ const Preferences: React.FC = () => {
 
             <div className="bg-[#1a222c] border border-slate-800 rounded-xl overflow-hidden">
                 <div className="p-6 border-b border-slate-800">
+                    <h3 className="text-lg font-bold text-white">Job Sources</h3>
+                    <p className="text-sm text-slate-400">Manage where your jobs are found and sync frequency.</p>
+                </div>
+                <div className="p-6 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
+                            <Briefcase size={20} />
+                        </div>
+                        <div>
+                            <h4 className="font-semibold text-white">Background Sync</h4>
+                            <p className="text-xs text-slate-500">Fetch latest jobs from RSS feeds and score them against your resume.</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={async () => {
+                            try {
+                                await APIService.syncFeeds();
+                                alert("Background sync started!");
+                            } catch (e) {
+                                alert("Failed to start sync");
+                            }
+                        }}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                        Sync Now
+                    </button>
+                </div>
+            </div>
+
+            <div className="bg-[#1a222c] border border-slate-800 rounded-xl overflow-hidden">
+                <div className="p-6 border-b border-slate-800">
                     <h3 className="text-lg font-bold text-white">Email Notifications</h3>
                     <p className="text-sm text-slate-400">Control which emails you receive from us.</p>
                 </div>

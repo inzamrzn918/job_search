@@ -3,6 +3,23 @@ import { Search, Plus, Filter, ArrowUpDown, MoreHorizontal, Calendar, Video, Cod
 import { useAuth } from '../hooks/useAuth';
 import type { Job, JobDetails } from '../types';
 import JobSearchModal from '../components/JobSearchModal';
+import { useToast } from '../context/ToastContext';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+    SortableContext,
+    sortableKeyboardCoordinates,
+    verticalListSortingStrategy,
+    useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface TrackerProps {
     jobs: Job[];
@@ -16,33 +33,126 @@ interface TrackerProps {
     addJobTrigger?: number;
     searchJobTrigger?: number;
     resumeId?: number;
+    onPreviewJob: (job: JobDetails) => void;
 }
+
+// -- Sortable Item Component --
+const SortableJobCard: React.FC<{
+    job: Job;
+    onDelete: (id: string) => void;
+    onUpdateStatus: (id: string, status: string) => void;
+    getMatchColor: (score: number | undefined) => string;
+    columns: { id: string; label: string }[];
+    onPreview: (job: JobDetails) => void;
+}> = ({ job, onDelete, onUpdateStatus, getMatchColor, columns, onPreview }) => {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: job.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            {...attributes}
+            {...listeners}
+            className="bg-[#1a222c] p-4 rounded-xl border border-slate-800 hover:border-slate-600 transition-all cursor-pointer group shadow-sm hover:shadow-md touch-none"
+            onClick={() => job.details && onPreview(job.details)}
+        >
+            <div className="flex justify-between items-start mb-3">
+                <div className="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-300">
+                    {job.company.substring(0, 2).toUpperCase()}
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${getMatchColor(job.score)}`}>
+                    {job.score ? `${job.score}% MATCH` : 'N/A'}
+                </span>
+            </div>
+
+            <h4 className="text-white font-bold text-sm mb-1 group-hover:text-primary transition-colors">{job.title}</h4>
+            <p className="text-slate-500 text-xs mb-4">{job.company}</p>
+
+            {/* Status Specific Info */}
+            {job.status === 'interviewing' && job.interview_date && (
+                <div className="bg-[#131b24] p-2 rounded-lg mb-3 border border-slate-800/50">
+                    <div className="flex items-center gap-2 text-xs text-blue-400 font-semibold mb-1">
+                        <Video size={12} /> Round 2: Technical
+                    </div>
+                    <div className="text-[10px] text-slate-500 flex items-center gap-1">
+                        <Calendar size={10} /> {new Date(job.interview_date).toLocaleString()}
+                    </div>
+                </div>
+            )}
+
+            {job.status === 'offer' && (
+                <div className="bg-[#131b24] p-2 rounded-lg mb-3 border border-slate-800/50">
+                    <div className="flex items-center gap-2 text-xs text-purple-400 font-semibold mb-1">
+                        <Code size={12} /> Take Home Assignment
+                    </div>
+                    <div className="text-[10px] text-slate-500">Due in 2 days</div>
+                </div>
+            )}
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+                <div className="text-[10px] text-slate-500 flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-600"></div> 2 days ago
+                </div>
+                <div className="flex items-center gap-2">
+                    <select
+                        value={job.status}
+                        onChange={(e) => onUpdateStatus(job.id, e.target.value)}
+                        onClick={(e) => { e.stopPropagation(); }}
+                        onPointerDown={(e) => e.stopPropagation()} // Prevent drag start on dropdown
+                        className="bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none cursor-pointer"
+                    >
+                        {columns.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                    </select>
+                    <button
+                        className="text-slate-600 hover:text-white"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm('Delete application?')) onDelete(job.id);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()} // Prevent drag start on button
+                    >
+                        <MoreHorizontal size={14} />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 const Tracker: React.FC<TrackerProps> = ({
     jobs,
     handleUpdateStatus,
     handleDeleteJob,
-    setJdContext,
-    setActiveTab,
     handleAddJobToTracker,
     handleJobExtract,
     addJobTrigger = 0,
     searchJobTrigger = 0,
-    resumeId
+    resumeId,
+    onPreviewJob
 }) => {
-    // ... inside component ...
-    // ... search modal render ...
     const [searchTerm, setSearchTerm] = useState('');
     const [sortDesc, setSortDesc] = useState(true);
     const { user } = useAuth();
 
-    // ... skipping directly to the bottom replacement target ...
-
-    // Wait, replace_file_content cannot do two separate chunks in one call without MultiReplace.
-    // I will use MultiReplaceFileContent.
-    // Actually, I can just do two calls or one big call if I include intermediate context, but lines are far apart (35 and 321).
-    // I'll use multi_replace_file_content.
-
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [showSearchModal, setShowSearchModal] = useState(false);
+    const [addMode, setAddMode] = useState<'url' | 'manual'>('url');
+    const [addInput, setAddInput] = useState('');
+    const [isImporting, setIsImporting] = useState(false);
 
     // Open search modal when trigger increments
     React.useEffect(() => {
@@ -50,6 +160,13 @@ const Tracker: React.FC<TrackerProps> = ({
             setShowSearchModal(true);
         }
     }, [searchJobTrigger]);
+
+    // Open add modal when trigger increments
+    React.useEffect(() => {
+        if (addJobTrigger > 0) {
+            setShowAddModal(true);
+        }
+    }, [addJobTrigger]);
 
     const columns = [
         { id: 'wishlist', label: 'Wishlist' },
@@ -86,20 +203,6 @@ const Tracker: React.FC<TrackerProps> = ({
         return sortDesc ? scoreB - scoreA : scoreA - scoreB;
     });
 
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [showSearchModal, setShowSearchModal] = useState(false);
-    const [addMode, setAddMode] = useState<'url' | 'manual'>('url');
-    const [addInput, setAddInput] = useState('');
-    const [isImporting, setIsImporting] = useState(false);
-
-    // ... (useEffect and handleImport remain same)
-    // Open modal when trigger increments
-    React.useEffect(() => {
-        if (addJobTrigger > 0) {
-            setShowAddModal(true);
-        }
-    }, [addJobTrigger]);
-
     const handleImport = async () => {
         if (!addInput.trim()) return;
         setIsImporting(true);
@@ -110,6 +213,69 @@ const Tracker: React.FC<TrackerProps> = ({
             setAddInput('');
         }
         setIsImporting(false);
+    };
+
+    const { info } = useToast();
+
+    // -- DnD Configuration --
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 5,
+            },
+        }),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (!over) return;
+
+        const activeId = active.id as string;
+        // Dropped over a column (we made columns droppable using SortableContext implies items inside are droppable targets)
+        // Actually, dnd-kit is flexible. If we drop on a Sortable item, we know which container it belongs to if we pass data or infer.
+        // Or simpler: check if 'over.id' is a job ID or a column ID.
+        // Current implementation: Columns don't have droppable IDs themselves in this simplified setup unless we explicitly add them.
+        // Let's assume we are just finding the job, checking its status, and updating status to the new column's status.
+        // BUT, dnd-kit doesn't automatically know "which column" unless we structure it that way.
+
+        // Simpler approach for multi-column:
+        // Use SortableContext for each column.
+        // If dropping 'active' (job) over 'over' (job or column), we determine the target status.
+
+        // Let's find the job object
+        const activeJob = jobs.find(j => j.id === activeId);
+        if (!activeJob) return;
+
+        // Determine target column
+        // We need to map droppable areas to statuses.
+        // 'over.id' will be a job ID if we drop ON a job.
+        // We can inspect 'over.data.current.sortable.containerId' if we set it up.
+        // Let's use `data` prop in `useSortable` to pass column ID.
+
+        // Wait, to keep it robust:
+        // Let's make the column itself a droppable zone? 
+        // Or just trust that dropping on a job in that column implies moving to that column.
+
+        // Let's check `over.data.current`:
+        const overData = over.data.current;
+        const targetStatus = overData?.status || over.id; // Fallback if we make column ID same as status
+
+        // If targetStatus is a valid status key
+        const validStatuses = columns.map(c => c.id);
+        if (validStatuses.includes(targetStatus as string) && activeJob.status !== targetStatus) {
+            handleUpdateStatus(activeId, targetStatus);
+            return;
+        }
+
+        // If we dropped over another JOB, find that job's status.
+        const overJob = jobs.find(j => j.id === over.id);
+        if (overJob && overJob.status !== activeJob.status) {
+            handleUpdateStatus(activeId, overJob.status);
+        }
     };
 
     return (
@@ -200,7 +366,7 @@ const Tracker: React.FC<TrackerProps> = ({
                     <div className="flex items-center gap-3">
                         <button
                             className="flex items-center gap-2 px-3 py-2 bg-[#101922] border border-slate-700 rounded-lg text-xs font-medium text-slate-300 hover:text-white transition-colors"
-                            onClick={() => alert("Advanced filters coming soon!")}
+                            onClick={() => info("Advanced filters coming soon!")}
                         >
                             <Filter size={14} /> More Filters
                         </button>
@@ -214,89 +380,46 @@ const Tracker: React.FC<TrackerProps> = ({
                 </div>
 
                 {/* Kanban Board */}
-                <div className="flex overflow-x-auto pb-8 gap-6">
-                    {columns?.map(col => {
-                        const colJobs = filteredJobs.filter(j => j.status === col.id);
-                        return (
-                            <div key={col.id} className="min-w-[320px] flex-1">
-                                <div className="flex items-center justify-between mb-4 px-1">
-                                    <h3 className="font-bold text-slate-300 flex items-center gap-2">
-                                        {col.label} <span className="bg-slate-800 text-slate-400 text-[10px] px-2 py-0.5 rounded-full">{colJobs.length}</span>
-                                    </h3>
-                                    <button className="text-slate-600 hover:text-white"><MoreHorizontal size={16} /></button>
-                                </div>
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                >
+                    <div className="flex overflow-x-auto pb-8 gap-6">
+                        {columns?.map(col => {
+                            const colJobs = filteredJobs.filter(j => j.status === col.id);
+                            return (
+                                <div key={col.id} className="min-w-[320px] flex-1">
+                                    <div className="flex items-center justify-between mb-4 px-1">
+                                        <h3 className="font-bold text-slate-300 flex items-center gap-2">
+                                            {col.label} <span className="bg-slate-800 text-slate-400 text-[10px] px-2 py-0.5 rounded-full">{colJobs.length}</span>
+                                        </h3>
+                                        <button className="text-slate-600 hover:text-white"><MoreHorizontal size={16} /></button>
+                                    </div>
 
-                                <div className="space-y-4">
-                                    {colJobs.map(job => (
-                                        <div
-                                            key={job.id}
-                                            className="bg-[#1a222c] p-4 rounded-xl border border-slate-800 hover:border-slate-600 transition-all cursor-pointer group shadow-sm hover:shadow-md"
-                                            onClick={() => { setJdContext(job.details || null); setActiveTab('dashboard'); }}
-                                        >
-                                            <div className="flex justify-between items-start mb-3">
-                                                <div className="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-300">
-                                                    {job.company.substring(0, 2).toUpperCase()}
-                                                </div>
-                                                <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${getMatchColor(job.score)}`}>
-                                                    {job.score ? `${job.score}% MATCH` : 'N/A'}
-                                                </span>
-                                            </div>
-
-                                            <h4 className="text-white font-bold text-sm mb-1 group-hover:text-primary transition-colors">{job.title}</h4>
-                                            <p className="text-slate-500 text-xs mb-4">{job.company}</p>
-
-                                            {/* Status Specific Info */}
-                                            {col.id === 'interviewing' && job.interview_date && (
-                                                <div className="bg-[#131b24] p-2 rounded-lg mb-3 border border-slate-800/50">
-                                                    <div className="flex items-center gap-2 text-xs text-blue-400 font-semibold mb-1">
-                                                        <Video size={12} /> Round 2: Technical
-                                                    </div>
-                                                    <div className="text-[10px] text-slate-500 flex items-center gap-1">
-                                                        <Calendar size={10} /> {new Date(job.interview_date).toLocaleString()}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {col.id === 'offer' && (
-                                                <div className="bg-[#131b24] p-2 rounded-lg mb-3 border border-slate-800/50">
-                                                    <div className="flex items-center gap-2 text-xs text-purple-400 font-semibold mb-1">
-                                                        <Code size={12} /> Take Home Assignment
-                                                    </div>
-                                                    <div className="text-[10px] text-slate-500">Due in 2 days</div>
-                                                </div>
-                                            )}
-
-                                            <div className="flex items-center justify-between pt-3 border-t border-slate-800">
-                                                <div className="text-[10px] text-slate-500 flex items-center gap-1">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-600"></div> 2 days ago
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <select
-                                                        value={job.status}
-                                                        onChange={(e) => handleUpdateStatus(job.id, e.target.value)}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        className="bg-slate-800 text-[10px] text-slate-300 border border-slate-700 rounded px-1 py-0.5 outline-none"
-                                                    >
-                                                        {columns.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                                                    </select>
-                                                    <button
-                                                        className="text-slate-600 hover:text-white"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (confirm('Delete application?')) handleDeleteJob(job.id);
-                                                        }}
-                                                    >
-                                                        <MoreHorizontal size={14} />
-                                                    </button>
-                                                </div>
-                                            </div>
+                                    <SortableContext
+                                        items={colJobs.map(j => j.id)}
+                                        strategy={verticalListSortingStrategy}
+                                    >
+                                        <div className="space-y-4 min-h-[100px]" data-status={col.id}>
+                                            {colJobs.map(job => (
+                                                <SortableJobCard
+                                                    key={job.id}
+                                                    job={job}
+                                                    onDelete={handleDeleteJob}
+                                                    onUpdateStatus={handleUpdateStatus}
+                                                    getMatchColor={getMatchColor}
+                                                    columns={columns}
+                                                    onPreview={onPreviewJob}
+                                                />
+                                            ))}
                                         </div>
-                                    ))}
+                                    </SortableContext>
                                 </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                            );
+                        })}
+                    </div>
+                </DndContext>
             </main>
 
             {showSearchModal && (

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, X, Briefcase, MapPin, ExternalLink, Plus, Loader, Target } from 'lucide-react';
+import { Search, X, Briefcase, MapPin, ExternalLink, Plus, Loader, Target, EyeOff } from 'lucide-react';
 import { APIService } from '../services/api';
 
 interface JobSearchModalProps {
@@ -39,9 +39,6 @@ const JobSearchModal: React.FC<JobSearchModalProps> = ({ isOpen, onClose, onAddJ
 
     const handleSearch = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        // Allow search without query if filters are present? Maybe. For now require query or just load default.
-        // if (!query.trim()) return; 
-
         setLoading(true);
         setSkip(0);
         setResults([]);
@@ -65,7 +62,7 @@ const JobSearchModal: React.FC<JobSearchModalProps> = ({ isOpen, onClose, onAddJ
         try {
             const data = await APIService.searchJobs(query, 50, skip, filters);
             if (data.length < 50) setHasMore(false);
-            setResults(prev => [...prev, ...data]); // Append new results
+            setResults(prev => [...prev, ...data]);
             setSkip(prev => prev + 50);
         } catch (err) {
             console.error(err);
@@ -107,6 +104,16 @@ const JobSearchModal: React.FC<JobSearchModalProps> = ({ isOpen, onClose, onAddJ
             console.error(err);
         } finally {
             setMatchingId(null);
+        }
+    };
+
+    const handleHide = async (jobId: number) => {
+        if (!jobId) return;
+        try {
+            await APIService.hideFeedJob(jobId);
+            setResults(prev => prev.filter(j => j.id !== jobId));
+        } catch (err) {
+            console.error("Failed to hide job", err);
         }
     };
 
@@ -168,7 +175,7 @@ const JobSearchModal: React.FC<JobSearchModalProps> = ({ isOpen, onClose, onAddJ
                         />
                         <button
                             type="submit"
-                            disabled={loading || (!query.trim() && !filters.country && !filters.domain)}
+                            disabled={loading}
                             className="absolute right-3 top-1/2 -translate-y-1/2 bg-primary hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-bold text-sm transition-colors disabled:opacity-50"
                         >
                             {loading && results.length === 0 ? 'Searching...' : 'Search'}
@@ -180,61 +187,73 @@ const JobSearchModal: React.FC<JobSearchModalProps> = ({ isOpen, onClose, onAddJ
                 <div className="flex-1 overflow-y-auto p-6 bg-[#101922]">
                     {results.length > 0 ? (
                         <div className="space-y-4">
-                            {results.map((job, idx) => (
-                                <div key={idx} className="bg-[#1a222c] border border-slate-700 p-6 rounded-xl hover:border-slate-500 transition-colors group overflow-hidden">
-                                    <div className="flex justify-between items-start">
-                                        <div className="flex-1 min-w-0"> {/* min-w-0 for ellipsis to work */}
-                                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                                <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-700 text-slate-300">
-                                                    {job.source || 'RSS'}
-                                                </span>
-                                                <span className="text-xs text-slate-500">{job.posted_date ? new Date(job.posted_date).toLocaleDateString() : 'Recently'}</span>
-                                                {matchScores[job.url] !== undefined && (
-                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${matchScores[job.url] >= 70 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>
-                                                        {matchScores[job.url]}% MATCH
+                            {results.map((job, idx) => {
+                                const score = job.match_score || matchScores[job.url];
+                                return (
+                                    <div key={idx} className="bg-[#1a222c] border border-slate-700 p-6 rounded-xl hover:border-slate-500 transition-colors group overflow-hidden">
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-700 text-slate-300">
+                                                        {job.source || 'RSS'}
                                                     </span>
-                                                )}
+                                                    <span className="text-xs text-slate-500">{job.posted_date ? new Date(job.posted_date).toLocaleDateString() : 'Recently'}</span>
+                                                    {score !== undefined && score > 0 && (
+                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${score >= 70 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>
+                                                            {Math.round(score)}% MATCH
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <h4 className="text-lg font-bold text-white mb-1 group-hover:text-primary transition-colors">{job.title}</h4>
+                                                <div className="flex items-center gap-4 text-sm text-slate-400 mb-4">
+                                                    <span className="flex items-center gap-1"><Briefcase size={14} /> {job.company}</span>
+                                                    <span className="flex items-center gap-1"><MapPin size={14} /> {job.location}</span>
+                                                </div>
+                                                <p className="text-sm text-slate-400 line-clamp-2 break-words">{job.description.replace(/<[^>]*>?/gm, '')}</p>
                                             </div>
-                                            <h4 className="text-lg font-bold text-white mb-1 group-hover:text-primary transition-colors">{job.title}</h4>
-                                            <div className="flex items-center gap-4 text-sm text-slate-400 mb-4">
-                                                <span className="flex items-center gap-1"><Briefcase size={14} /> {job.company}</span>
-                                                <span className="flex items-center gap-1"><MapPin size={14} /> {job.location}</span>
-                                            </div>
-                                            <p className="text-sm text-slate-400 line-clamp-2 break-words">{job.description.replace(/<[^>]*>?/gm, '')}</p>
-                                        </div>
-                                        <div className="flex flex-col gap-2 ml-4 shrink-0">
-                                            <button
-                                                onClick={() => handleAdd(job)}
-                                                disabled={addingId === job.url}
-                                                className="bg-slate-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 min-w-[140px]"
-                                            >
-                                                {addingId === job.url ? <Loader size={16} className="animate-spin" /> : <Plus size={16} />}
-                                                Add to Tracker
-                                            </button>
-
-                                            {resumeId && (
+                                            <div className="flex flex-col gap-2 ml-4 shrink-0">
                                                 <button
-                                                    onClick={() => handleMatch(job)}
-                                                    disabled={matchingId === job.url || matchScores[job.url] !== undefined}
+                                                    onClick={() => handleAdd(job)}
+                                                    disabled={addingId === job.url}
+                                                    className="bg-slate-700 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 min-w-[140px]"
+                                                >
+                                                    {addingId === job.url ? <Loader size={16} className="animate-spin" /> : <Plus size={16} />}
+                                                    Add to Tracker
+                                                </button>
+
+                                                {resumeId && (
+                                                    <button
+                                                        onClick={() => handleMatch(job)}
+                                                        disabled={matchingId === job.url || score !== undefined}
+                                                        className="border border-slate-600 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                                    >
+                                                        {matchingId === job.url ? <Loader size={16} className="animate-spin" /> : <Target size={16} />}
+                                                        {score !== undefined ? 'Matched' : 'Check Match'}
+                                                    </button>
+                                                )}
+
+                                                {job.id && (
+                                                    <button
+                                                        onClick={() => handleHide(job.id)}
+                                                        className="border border-red-500/30 hover:bg-red-500/10 text-red-400 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                                    >
+                                                        <EyeOff size={16} /> Hide
+                                                    </button>
+                                                )}
+
+                                                <a
+                                                    href={job.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
                                                     className="border border-slate-600 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                                                 >
-                                                    {matchingId === job.url ? <Loader size={16} className="animate-spin" /> : <Target size={16} />}
-                                                    {matchScores[job.url] !== undefined ? 'Matched' : 'Check Match'}
-                                                </button>
-                                            )}
-
-                                            <a
-                                                href={job.url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="border border-slate-600 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                                            >
-                                                <ExternalLink size={16} /> View Listing
-                                            </a>
+                                                    <ExternalLink size={16} /> View Listing
+                                                </a>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
 
                             {hasMore && (
                                 <button
@@ -257,6 +276,7 @@ const JobSearchModal: React.FC<JobSearchModalProps> = ({ isOpen, onClose, onAddJ
                                 <Search className="w-16 h-16 mb-4 opacity-20" />
                                 <p className="text-lg">No jobs found yet.</p>
                                 <p className="text-sm">Enter a keyword or use filters to start searching.</p>
+                                <p className="text-xs mt-2">Make sure "Sync" has run in Settings.</p>
                             </div>
                         )
                     )}

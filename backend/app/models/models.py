@@ -123,3 +123,49 @@ class Notification(Base):
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
     
     user: Mapped["User"] = relationship(back_populates="notifications")
+
+class JobFeed(Base):
+    __tablename__ = "job_feeds"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    url: Mapped[str] = mapped_column(String(500), unique=True)
+    is_active: Mapped[bool] = mapped_column(default=True)
+    last_fetched: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
+
+class JobPosting(Base):
+    __tablename__ = "job_postings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    external_id: Mapped[str] = mapped_column(String(255), unique=True, index=True) # Hash of URL
+    url: Mapped[str] = mapped_column(String(500))
+    title: Mapped[str] = mapped_column(String(255))
+    company: Mapped[str] = mapped_column(String(255))
+    location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String(100))
+    posted_date: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True)
+    
+    is_active: Mapped[bool] = mapped_column(default=True)
+    deleted_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime, nullable=True) # Soft delete
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
+    
+    matches: Mapped[List["JobPostingMatch"]] = relationship(back_populates="job_posting", cascade="all, delete-orphan")
+
+class JobPostingMatch(Base):
+    __tablename__ = "job_posting_matches"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_posting_id: Mapped[int] = mapped_column(ForeignKey("job_postings.id"))
+    resume_id: Mapped[int] = mapped_column(ForeignKey("resumes.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    
+    score: Mapped[float] = mapped_column(Float)
+    match_details: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
+
+    job_posting: Mapped["JobPosting"] = relationship(back_populates="matches")
+    resume: Mapped["Resume"] = relationship()
+    user: Mapped["User"] = relationship()
+

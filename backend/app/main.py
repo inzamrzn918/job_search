@@ -8,12 +8,23 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.endpoints import jobs, resume, coach, auth
 from app.core.database import init_db
+from app.core.logging_middleware import LoggingMiddleware
 
 app = FastAPI(title="JobSearch API")
 
+# Add logging middleware globally
+app.add_middleware(LoggingMiddleware)
+
+import logging
+
 @app.on_event("startup")
 async def startup_event():
+    # Force basic logging to ensure output matches uvicorn format matches expected visibility
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(name)s: %(message)s', force=True)
+    logger = logging.getLogger("uvicorn")
+    logger.info("Initializing Database...")
     await init_db()
+    logger.info("Database Initialized")
 
 # Configure CORS
 app.add_middleware(

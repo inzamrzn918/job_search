@@ -222,4 +222,12 @@ export const APIService = {
     async disable2FA(): Promise<void> {
         await api.post('/api/auth/2fa/disable');
     },
+
+    async syncFeeds(): Promise<void> {
+        await api.post('/api/job/sync');
+    },
+
+    async hideFeedJob(jobId: number): Promise<void> {
+        await api.delete(`/api/job/feed-result/${jobId}`);
+    },
 };

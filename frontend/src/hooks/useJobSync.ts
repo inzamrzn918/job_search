@@ -59,7 +59,9 @@ export const useJobSync = (isAuthenticated: boolean) => {
 
     useEffect(() => {
         const runMatch = async () => {
+            console.log('runMatch triggered. resumeId:', resumeContext?.id, 'jdId:', jdContext?.id);
             if (resumeContext?.id && jdContext?.id && isAuthenticated) {
+                console.log('Starting match calculation...');
                 setLoading(true);
                 try {
                     setSuggestions([]);
@@ -74,7 +76,10 @@ export const useJobSync = (isAuthenticated: boolean) => {
                     console.error("Match error:", err);
                 } finally {
                     setLoading(false);
+                    console.log('Match calculation finished.');
                 }
+            } else {
+                console.log('Skipping match calculation. Conditions met?', !!(resumeContext?.id && jdContext?.id && isAuthenticated));
             }
         };
         runMatch();

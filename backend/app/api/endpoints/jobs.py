@@ -305,25 +305,30 @@ async def match_external_job(
 
 @router.get("/job/search")
 async def search_jobs(
-    query: str, 
-    limit: int = 50, # Increased default limit
+    query: str = "", 
+    limit: int = 50, 
     skip: int = 0,
     country: Optional[str] = None,
     domain: Optional[str] = None,
     work_type: Optional[str] = None,
     source: Optional[str] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     from ...services.job_search import JobSearchService
     service = JobSearchService()
-    results = await service.search_remote_jobs(
+    
+    # Use DB search
+    filters = {}
+    if country: filters['country'] = country
+    
+    results = await service.search_db_jobs(
+        db=db,
+        user_id=current_user.id,
         query=query, 
         limit=limit, 
         skip=skip,
-        country=country,
-        domain=domain,
-        work_type=work_type,
-        source=source
+        filters=filters
     )
     return results
 
@@ -333,4 +338,50 @@ async def get_job_filters(
 ):
     from ...services.job_search import JobSearchService
     service = JobSearchService()
+    # Currently still using CSV data for filter options, which is fast and fine
     return service.get_available_filters()
+
+from fastapi import BackgroundTasks
+
+@router.post("/job/sync")
+async def sync_jobs(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Triggers background synchronization of RSS feeds and scoring.
+    """
+    from ...services.job_search import JobSearchService
+    service = JobSearchService()
+    
+    # We need a new session for background task usually, or handle carefully.
+    # FastAPI dependency session might close. 
+    # Ideally pass a factory or handle session inside task.
+    # For simplicity here, we'll try passing the session but it's risky if response returns.
+    # Better: The service methods should accept a session factory or we just await it here for "Sync Now" functionality blocks response?
+    # User said "it should be in background".
+    # I'll define a wrapper function that creates a new session.
+    
+    async def run_sync_task(user_id: int):
+        # Create new session
+        from ...core.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as session:
+            svc = JobSearchService()
+            await svc.initialize_feeds_from_csv(session)
+            await svc.sync_feeds_to_db(session)
+            await svc.score_jobs_for_user(session, user_id)
+            
+    background_tasks.add_task(run_sync_task, current_user.id)
+    return {"status": "Background sync started"}
+
+@router.delete("/job/feed-result/{job_id}")
+async def hide_feed_job(
+    job_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    from ...services.job_search import JobSearchService
+    service = JobSearchService()
+    await service.soft_delete_job(db, job_id)
+    return {"status": "hidden"}

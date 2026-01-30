@@ -6,7 +6,7 @@ from playwright.async_api import async_playwright
 from google import genai
 from ..core.config import GOOGLE_API_KEY, MODEL_ID
 
-client = genai.Client(api_key=GOOGLE_API_KEY)
+
 
 class JobExtractor:
     async def extract_from_url(self, url: str) -> Dict[str, Any]:
@@ -80,6 +80,9 @@ class JobExtractor:
                 {text_content[:15000]}
                 """
 
+                # Instantiate client locally to avoid event loop issues in threads
+                client = genai.Client(api_key=GOOGLE_API_KEY)
+
                 # Use async client for Gemini
                 response = await client.aio.models.generate_content(
                     model=MODEL_ID,
@@ -121,6 +124,10 @@ class JobExtractor:
         Job Content:
         {text}
         """
+        
+        # Instantiate client locally to avoid event loop issues
+        client = genai.Client(api_key=GOOGLE_API_KEY)
+
         response = await client.aio.models.generate_content(
             model=MODEL_ID,
             contents=prompt
