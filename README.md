@@ -10,7 +10,30 @@ JobSync AI is a comprehensive, AI-powered job search portal designed to streamli
 - **Interview Coach**: Generate tailored interview questions and professional answers based on specific job requirements and your background.
 - **Kanban Tracker**: Manage your application pipeline from wishlist to offer.
 
+## Key Features & Usage
+
+### 📄 AI Resume Parser
+- **Upload**: Drag and drop your PDF/DOCX resume.
+- **Analysis**: The AI extracts your key skills, experience, and education automatically.
+- **Optimization**: Get suggestions to improve your resume's impact and ATS compatibility.
+
+### 🔍 Intelligent Job Search
+- **Aggregation**: Search across multiple platforms (LinkedIn, Naukri, Indeed) from a single interface.
+- **Match Score**: Each job is scored (0-100%) against your resume. Focus on jobs where you are a top match.
+- **One-Click Save**: Add promising jobs to your tracker with a single click.
+
+### 💼 Smart Kanban Tracker
+- **Pipeline Management**: Visualize your job search progress (Wishlist -> Applied -> Interview -> Offer).
+- **Status Updates**: Drag and drop cards to update their status.
+- **Notes & Reminders**: Keep track of follow-ups and interview details for each application.
+
+### 🤖 AI Interview Coach
+- **Tailored Questions**: The AI generates interview questions based specifically on the job description and your resume.
+- **Mock Interviews**: Practice your answers and get instant feedback on tone, content, and clarity.
+- **Confidence Building**: Prepare for behavioral and technical questions alike.
+
 ## Tech Stack
+
 
 - **Backend**: Python, FastAPI, Playwright (Scraping), Google GenAI (Gemini 1.5 Flash).
 - **Frontend**: React, TypeScript, Vite, Lucide React (Icons), Axios.
@@ -33,51 +56,29 @@ job_search/
 - Node.js 18+
 - Google Gemini API Key
 
-### Backend Setup
+### Quick Start (Docker)
 
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Install dependencies:
-   ```bash
-   uv sync
-   ```
-3. Set up environment variables:
-   - Create a `.env` file from the placeholder.
-   - Add your `GOOGLE_API_KEY`.
-4. Run the server:
-   ```bash
-   uv run fastapi dev
-   ```
-
-
-### Production Deployment (Docker)
-
-1.  Make sure you have Docker and Docker Compose installed.
-2.  Set up your `.env` file in the `backend` directory.
-3.  Run the application:
+1.  **Prerequisites**: Ensure Docker and Docker Compose are installed.
+2.  **Configuration**: 
+    - Create a `.env` file in the `backend` directory (copy from `.env.example`).
+    - Add your `GOOGLE_API_KEY`.
+3.  **Run**:
     ```bash
     docker-compose up --build -d
     ```
-4.  Access the application at `http://localhost:8080`.
+4.  **Access**: Open `http://localhost:8080`.
 
-### Frontend Setup
+### Manual Setup (Development)
 
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Set up environment variables:
-   - Create a `.env` file with `VITE_API_BASE_URL=http://localhost:8000`.
-4. Run the development server:
-   ```bash
-   npm run dev
-   ```
+#### Backend
+1. Navigate to `backend/`: `cd backend`
+2. Install dependencies: `uv sync`
+3. Run server: `uv run fastapi dev`
+
+#### Frontend
+1. Navigate to `frontend/`: `cd frontend`
+2. Install dependencies: `npm install`
+3. Run dev server: `npm run dev`
 
 ## License
 

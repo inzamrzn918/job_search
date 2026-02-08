@@ -27,13 +27,45 @@ Before reporting a bug, please search existing issues to see if it has already b
 ## Suggesting Enhancements
 Feature requests are welcome! Please provide a clear description of the enhancement and why it would be useful.
 
-## Your First Code Contribution
-1. Fork the repository.
-2. Clone your fork: `git clone https://github.com/inzamam/job_search.git`.
-3. Create a new branch: `git checkout -b feature/your-feature-name`.
-4. Make your changes and commit them with descriptive messages.
-5. Push to your fork: `git push origin feature/your-feature-name`.
-6. Open a Pull Request.
+## Development Setup
+
+We recommend using **Docker** for local development to ensure environment consistency.
+
+1.  **Fork and Clone**:
+    ```bash
+    git clone https://github.com/your-username/job_search.git
+    cd job_search
+    ```
+
+2.  **Environment Variables**:
+    - Backend: Copy `backend/.env.example` to `backend/.env` and add your `GOOGLE_API_KEY`.
+    - Frontend: Copy `frontend/.env.example` to `frontend/.env` (if applicable).
+
+3.  **Run with Docker**:
+    ```bash
+    docker-compose up --build
+    ```
+    The app will be available at `http://localhost:8080`.
+
+4.  **Manual Setup (Optional)**:
+    If you prefer running without Docker, refer to the "Manual Setup" section in the `README.md`.
+
+## Contribution Guidelines
+
+1.  **Branching**:
+    - Use `feature/` for new features (e.g., `feature/add-dark-mode`).
+    - Use `fix/` for bug fixes (e.g., `fix/login-error`).
+    - Use `docs/` for documentation updates.
+
+2.  **Commits**:
+    - Write clear, concise commit messages.
+    - Start with a verb (e.g., "Add...", "Fix...", "Update...").
+
+3.  **Pull Requests**:
+    - detailed description of changes.
+    - Screenshots for UI changes.
+    - Ensure all tests pass (if available).
+
 
 ## Pull Request Process
 - Ensure your code follows the project's style and quality standards.
