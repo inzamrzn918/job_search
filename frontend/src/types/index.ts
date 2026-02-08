@@ -67,3 +67,11 @@ export type Job = {
     interview_notes?: string;
     details?: JobDetails;
 }
+
+export type JobFeed = {
+    id: number;
+    name: string;
+    url: string;
+    is_active: boolean;
+    created_at?: string;
+}

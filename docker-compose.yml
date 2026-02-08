@@ -1,0 +1,32 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: "/"
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - sqlite_data:/app/data
+    env_file:
+      - ./backend/.env
+    networks:
+      - app-network
+
+volumes:
+  sqlite_data:
+
+
+networks:
+  app-network:
+    driver: bridge

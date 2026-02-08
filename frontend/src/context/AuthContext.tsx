@@ -7,6 +7,7 @@ interface AuthContextType {
     login: (credentials: any) => Promise<any>;
     register: (userData: any) => Promise<any>;
     logout: () => void;
+    updateUser: (data: any) => void;
     isAuthenticated: boolean;
 }
 
@@ -51,13 +52,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return await APIService.register(userData);
     };
 
+    const updateUser = (data: any) => {
+        const newUser = { ...user, ...data };
+        localStorage.setItem('user', JSON.stringify(newUser));
+        setUser(newUser);
+    };
+
     useEffect(() => {
         checkAuth();
         APIService.setUnauthorizedCallback(logout);
     }, [checkAuth, logout]);
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, register, logout, isAuthenticated: !!user }}>
+        <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser, isAuthenticated: !!user }}>
             {children}
         </AuthContext.Provider>
     );

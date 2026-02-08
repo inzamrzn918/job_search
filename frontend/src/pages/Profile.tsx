@@ -8,7 +8,7 @@ interface ProfileProps {
 }
 
 const Profile: React.FC<ProfileProps> = ({ logout }) => {
-    const { user } = useAuth();
+    const { user, updateUser } = useAuth();
     const [uploading, setUploading] = useState(false);
     const [remoteWork, setRemoteWork] = useState(true);
     const [name, setName] = useState("");
@@ -57,10 +57,12 @@ const Profile: React.FC<ProfileProps> = ({ logout }) => {
             setUploading(true);
             try {
                 const file = e.target.files[0];
-                await APIService.uploadProfilePhoto(file);
-                // Force reload or update context (simplified for now by just alerting but ideally update user context)
-                // alert("Photo uploaded! Please refresh to see changes.");
-                window.location.reload();
+                const response = await APIService.uploadProfilePhoto(file);
+
+
+                updateUser({ profile_photo_url: response.url });
+                setUploading(false);
+                // window.location.reload(); 
             } catch (error) {
                 alert("Error uploading photo");
                 setUploading(false);
@@ -80,7 +82,7 @@ const Profile: React.FC<ProfileProps> = ({ logout }) => {
                         ) : (
                             <div className="w-20 h-20 rounded-full bg-slate-700 overflow-hidden flex items-center justify-center text-3xl font-bold text-slate-300 shadow-inner">
                                 {user?.profile_photo_url ? (
-                                    <img src={user.profile_photo_url} alt="Profile" className="w-full h-full object-cover" />
+                                    <img src={APIService.getAssetUrl(user.profile_photo_url)} alt="Profile" className="w-full h-full object-cover" />
                                 ) : (
                                     name ? name.substring(0, 2).toUpperCase() : 'ME'
                                 )}
@@ -192,6 +194,21 @@ const Profile: React.FC<ProfileProps> = ({ logout }) => {
             </div>
 
             <div className="flex justify-end gap-4">
+                <button
+                    onClick={async () => {
+                        if (confirm("This will re-calculate match scores for all active jobs based on your latest resume. This may take a few seconds. Continue?")) {
+                            try {
+                                await APIService.rescoreJobs();
+                                alert("Jobs re-scored successfully!");
+                            } catch (e) {
+                                alert("Failed to re-score jobs.");
+                            }
+                        }
+                    }}
+                    className="bg-slate-700 hover:bg-slate-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg transition-colors"
+                >
+                    Re-score Jobs
+                </button>
                 <button className="text-slate-400 hover:text-white text-sm font-medium" onClick={logout}>Log out</button>
                 <button onClick={handleSave} className="bg-primary hover:bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg shadow-blue-500/20">
                     Save Changes

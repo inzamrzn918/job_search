@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --primary: #818cf8;
   --primary-glow: rgba(99, 102, 241, 0.5);

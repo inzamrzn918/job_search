@@ -131,7 +131,7 @@ class JobSearchService:
         await db.commit()
         logger.info(f"Sync complete. Added {new_jobs_count} new jobs.")
 
-    async def score_jobs_for_user(self, db: AsyncSession, user_id: int):
+    async def score_jobs_for_user(self, db: AsyncSession, user_id: int, recalculate: bool = False):
         """Calculate match scores for unscored jobs for a user"""
         # Get latest resume
         res_stmt = select(Resume).where(Resume.user_id == user_id).order_by(desc(Resume.created_at)).limit(1)
@@ -158,19 +158,28 @@ class JobSearchService:
                 )
             )
             if match_exist.scalar():
-                continue
+                if not recalculate:
+                    continue
+                # If recalculate, we proceed to update the score
 
             # Calculate Mock Score
             score = self._calculate_mock_score(resume.raw_text, job.description or job.title)
             
-            match = JobPostingMatch(
-                job_posting_id=job.id,
-                resume_id=resume.id,
-                user_id=user_id,
-                score=score,
-                match_details={"justification": "Keyword analysis"}
-            )
-            db.add(match)
+            if recalculate:
+                 # Update existing match
+                 stmt = update(JobPostingMatch).where(
+                     and_(JobPostingMatch.job_posting_id == job.id, JobPostingMatch.user_id == user_id)
+                 ).values(score=score, match_details={"justification": "Keyword analysis (Refreshed)"})
+                 await db.execute(stmt)
+            else:
+                 match = JobPostingMatch(
+                    job_posting_id=job.id,
+                    resume_id=resume.id,
+                    user_id=user_id,
+                    score=score,
+                    match_details={"justification": "Keyword analysis"}
+                 )
+                 db.add(match)
         
         await db.commit()
 

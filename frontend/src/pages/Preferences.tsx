@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, Moon, Mail, Briefcase } from 'lucide-react';
 import { APIService } from '../services/api';
+import { FeedList } from '../components/FeedList';
 
 const Preferences: React.FC = () => {
     const [preferences, setPreferences] = useState({
@@ -87,19 +88,10 @@ const Preferences: React.FC = () => {
             </div>
 
             <div className="bg-[#1a222c] border border-slate-800 rounded-xl overflow-hidden">
-                <div className="p-6 border-b border-slate-800">
-                    <h3 className="text-lg font-bold text-white">Job Sources</h3>
-                    <p className="text-sm text-slate-400">Manage where your jobs are found and sync frequency.</p>
-                </div>
-                <div className="p-6 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="p-2 bg-blue-500/10 rounded-lg text-blue-400">
-                            <Briefcase size={20} />
-                        </div>
-                        <div>
-                            <h4 className="font-semibold text-white">Background Sync</h4>
-                            <p className="text-xs text-slate-500">Fetch latest jobs from RSS feeds and score them against your resume.</p>
-                        </div>
+                <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+                    <div>
+                        <h3 className="text-lg font-bold text-white">Job Sources</h3>
+                        <p className="text-sm text-slate-400">Manage RSS feeds for automatic job discovery.</p>
                     </div>
                     <button
                         onClick={async () => {
@@ -114,6 +106,9 @@ const Preferences: React.FC = () => {
                     >
                         Sync Now
                     </button>
+                </div>
+                <div className="p-6">
+                    <FeedList />
                 </div>
             </div>
 

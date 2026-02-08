@@ -51,6 +51,17 @@ job_search/
    uv run fastapi dev
    ```
 
+
+### Production Deployment (Docker)
+
+1.  Make sure you have Docker and Docker Compose installed.
+2.  Set up your `.env` file in the `backend` directory.
+3.  Run the application:
+    ```bash
+    docker-compose up --build -d
+    ```
+4.  Access the application at `http://localhost:8080`.
+
 ### Frontend Setup
 
 1. Navigate to the frontend directory:

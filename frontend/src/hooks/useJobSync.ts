@@ -88,7 +88,7 @@ export const useJobSync = (isAuthenticated: boolean) => {
     const handleResumeUpload = async (file: File) => {
         setLoading(true);
         try {
-            const result = await APIService.parseResume(file);
+            const result = await APIService.parseResume(file, true);
             setResumeContext(result);
             const jobsRes = await APIService.getJobs(result.id);
             setJobs(mapJobs(jobsRes));

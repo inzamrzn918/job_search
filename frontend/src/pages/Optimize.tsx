@@ -1,6 +1,7 @@
-import React from 'react';
-import { CheckCircle, AlertTriangle, Zap, ArrowRight, Wand2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle, AlertTriangle, Zap, PenTool, Save, Wand2, Briefcase } from 'lucide-react';
 import ResumeEditor from '../components/ResumeEditor';
+import { APIService } from '../services/api';
 import type { ResumeData, JobDetails, MatchResult } from '../types';
 
 interface Suggestion {
@@ -24,141 +25,231 @@ const Optimize: React.FC<OptimizeProps> = ({
     jdContext,
     matchResult,
     suggestions,
+    coverLetter: initialCoverLetter,
     loading,
     handleOptimize
 }) => {
+    const [activeTab, setActiveTab] = useState<'analysis' | 'jd' | 'coverLetter'>('analysis');
+    const [resumeContent, setResumeContent] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
+    const [generatedCoverLetter, setGeneratedCoverLetter] = useState("");
+    const [generatingCL, setGeneratingCL] = useState(false);
+
+    // Sync local state with prop
+    useEffect(() => {
+        if (resumeContext?.raw_text) {
+            setResumeContent(resumeContext.raw_text);
+        }
+    }, [resumeContext]);
+
+    useEffect(() => {
+        if (initialCoverLetter) setGeneratedCoverLetter(initialCoverLetter);
+    }, [initialCoverLetter]);
+
+    const handleSaveAndRescore = async () => {
+        if (!resumeContext?.id) return;
+        setIsSaving(true);
+        try {
+            await APIService.updateResumeText(resumeContext.id, resumeContent);
+            await handleOptimize(); // Re-runs scoring and suggestions
+        } catch (error) {
+            alert("Failed to save and re-score");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleGenerateCoverLetter = async () => {
+        if (!resumeContext?.id || !jdContext?.id) return;
+        setGeneratingCL(true);
+        try {
+            const res = await APIService.generateCoverLetter(resumeContext.id, jdContext.id);
+            setGeneratedCoverLetter(res.cover_letter);
+        } catch (error) {
+            alert("Failed to generate cover letter");
+        } finally {
+            setGeneratingCL(false);
+        }
+    };
+
     const score = matchResult?.result.score || 0;
     const missingSkills = matchResult?.result.missing_skills || [];
 
     return (
         <div className="flex h-screen bg-[#101922] animate-fade-in overflow-hidden">
-            {/* Main Editor Area */}
-            <div className="flex-1 flex flex-col min-w-0">
-                <header className="flex justify-between items-center px-8 py-5 border-b border-slate-800 bg-[#101922] flex-shrink-0">
+            {/* Main Editor Area (Left) */}
+            <div className="flex-1 flex flex-col min-w-0 border-r border-slate-800">
+                <header className="flex justify-between items-center px-6 py-4 border-b border-slate-800 bg-[#101922] flex-shrink-0">
                     <div>
                         <h2 className="text-xl font-bold text-white">Resume Optimizer</h2>
-                        <p className="text-sm text-slate-400">Tailoring your resume for: <span className="text-white font-medium">{jdContext?.parsed_data.title || 'Selected Job'}</span> at <span className="text-white font-medium">{jdContext?.parsed_data.company || 'Target Company'}</span></p>
-                    </div>
-                    <div className="flex gap-3">
-                        <button className="bg-[#1a222c] text-white border border-slate-700 hover:bg-slate-800 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                            Preview PDF
-                        </button>
-                        <button className="bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-blue-500/20 transition-colors">
-                            <ArrowRight size={16} /> Export
-                        </button>
+                        <p className="text-sm text-slate-400">Target: <span className="text-white font-medium">{jdContext?.parsed_data.company || '...'}</span></p>
                     </div>
                 </header>
 
-                <div className="flex-1 overflow-y-auto p-8">
-                    <ResumeEditor content={resumeContext?.raw_text || ""} onChange={() => { }} />
+                <div className="flex-1 overflow-hidden relative">
+                    <ResumeEditor content={resumeContent} onChange={setResumeContent} />
                 </div>
             </div>
 
-            {/* AI Analysis Sidebar */}
-            <aside className="w-[400px] bg-[#1a222c] border-l border-slate-800 flex flex-col">
-                {!jdContext ? (
-                    <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-                        <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mb-6 ring-4 ring-slate-800/50">
-                            <Wand2 size={32} className="text-slate-600" />
-                        </div>
-                        <h3 className="text-xl font-bold text-white mb-2">AI Optimization</h3>
-                        <p className="text-slate-400 mb-8 leading-relaxed">
-                            Select a job from the <span className="text-primary font-bold">Job Tracker</span> board to unlock AI-powered resume tailoring and scoring.
-                        </p>
-                    </div>
-                ) : (
-                    <>
-                        <div className="p-6 border-b border-slate-800">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="font-bold text-white flex items-center gap-2">
-                                    <Zap className="text-yellow-400" size={18} /> AI Analysis
-                                </h3>
-                                {/* Score Gauge Visual */}
-                                <div className="relative w-12 h-12 flex items-center justify-center">
-                                    <svg className="transform -rotate-90 w-12 h-12">
-                                        <circle cx="24" cy="24" r="20" stroke="#334155" strokeWidth="4" fill="transparent" />
-                                        <circle
-                                            cx="24" cy="24" r="20"
-                                            stroke={score >= 80 ? "#10b981" : score >= 50 ? "#eab308" : "#ef4444"}
-                                            strokeWidth="4"
-                                            fill="transparent"
-                                            strokeDasharray="125.6"
-                                            strokeDashoffset={125.6 - (125.6 * score) / 100}
-                                        />
-                                    </svg>
-                                    <span className="absolute text-xs font-bold text-white">{score}</span>
-                                </div>
-                            </div>
-                            <p className="text-sm text-slate-400 mb-4">
-                                {score >= 80
-                                    ? <><span className="text-emerald-400 font-bold">Excellent Match!</span> Your resume is well-tailored.</>
-                                    : score >= 50
-                                        ? <><span className="text-yellow-400 font-bold">Good Match</span>, but missing directly mentioned skills.</>
-                                        : <><span className="text-red-400 font-bold">Low Match</span>. Needs significant optimization.</>
-                                }
-                            </p>
-                            <button
-                                onClick={handleOptimize}
-                                disabled={loading}
-                                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white p-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
-                            >
-                                {loading ? 'Analyzing...' : <><Wand2 size={16} className="group-hover:rotate-12 transition-transform" /> Auto-Optimize Resume</>}
-                            </button>
-                        </div>
+            {/* Tools Sidebar (Right) */}
+            <aside className="w-[450px] bg-[#1a222c] flex flex-col">
+                {/* Tabs */}
+                <div className="flex border-b border-slate-700">
+                    <button
+                        onClick={() => setActiveTab('analysis')}
+                        className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${activeTab === 'analysis' ? 'border-primary text-white' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+                    >
+                        <Zap size={16} /> Analysis
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('jd')}
+                        className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${activeTab === 'jd' ? 'border-primary text-white' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+                    >
+                        <Briefcase size={16} /> Job Desc
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('coverLetter')}
+                        className={`flex-1 py-4 text-sm font-bold flex items-center justify-center gap-2 border-b-2 transition-colors ${activeTab === 'coverLetter' ? 'border-primary text-white' : 'border-transparent text-slate-400 hover:text-slate-200'}`}
+                    >
+                        <PenTool size={16} /> Cover Letter
+                    </button>
+                </div>
 
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                            {/* Critical Issues */}
-                            {missingSkills.length > 0 && (
-                                <div>
-                                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Missing Skills</h4>
-                                    <div className="space-y-3">
-                                        <div className="bg-[#131b24] p-3 rounded-lg border border-red-500/30 flex gap-3">
-                                            <AlertTriangle className="text-red-400 flex-shrink-0" size={16} />
-                                            <div>
-                                                <p className="text-sm text-white font-medium mb-1">Keywords Detected</p>
-                                                <p className="text-xs text-slate-400 mb-2">
-                                                    {missingSkills.slice(0, 5).join(", ")}
-                                                    {missingSkills.length > 5 && ` +${missingSkills.length - 5} more`}
-                                                    {" are missing from your resume."}
-                                                </p>
+                <div className="flex-1 overflow-y-auto p-6">
+                    {!jdContext ? (
+                        <div className="text-center text-slate-400 mt-20">
+                            <Wand2 className="mx-auto mb-4 opacity-50" size={48} />
+                            <p>Select a job to start optimizing.</p>
+                        </div>
+                    ) : (
+                        <>
+                            {activeTab === 'analysis' && (
+                                <div className="space-y-6 animate-fade-in">
+                                    {/* Score Card */}
+                                    <div className="bg-[#131b24] p-6 rounded-xl border border-slate-700 text-center">
+                                        <div className="relative w-24 h-24 mx-auto mb-4 flex items-center justify-center">
+                                            <svg className="transform -rotate-90 w-24 h-24">
+                                                <circle cx="48" cy="48" r="40" stroke="#334155" strokeWidth="8" fill="transparent" />
+                                                <circle
+                                                    cx="48" cy="48" r="40"
+                                                    stroke={score >= 80 ? "#10b981" : score >= 50 ? "#eab308" : "#ef4444"}
+                                                    strokeWidth="8"
+                                                    fill="transparent"
+                                                    strokeDasharray="251.2"
+                                                    strokeDashoffset={251.2 - (251.2 * score) / 100}
+                                                />
+                                            </svg>
+                                            <span className="absolute text-3xl font-bold text-white">{score}</span>
+                                        </div>
+                                        <p className="text-sm text-slate-400 mb-6">Match Score</p>
+
+                                        <button
+                                            onClick={handleSaveAndRescore}
+                                            disabled={loading || isSaving}
+                                            className="w-full bg-primary hover:bg-blue-600 text-white py-3 rounded-lg font-bold shadow-lg shadow-blue-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                        >
+                                            {isSaving || loading ? <Wand2 className="animate-spin" size={18} /> : <Save size={18} />}
+                                            {isSaving ? "Saving..." : "Save & Re-Analyze"}
+                                        </button>
+                                        <p className="text-xs text-slate-500 mt-2">Edits to your resume are saved automatically.</p>
+                                    </div>
+
+                                    {/* Missing Skills */}
+                                    {missingSkills.length > 0 && (
+                                        <div>
+                                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Missing Keywords</h4>
+                                            <div className="bg-[#131b24] p-4 rounded-lg border border-red-500/20">
+                                                <div className="flex gap-3 mb-2">
+                                                    <AlertTriangle className="text-red-400 flex-shrink-0" size={18} />
+                                                    <p className="text-sm text-slate-300">Consider adding these keywords:</p>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2 ml-7">
+                                                    {missingSkills.map(skill => (
+                                                        <span key={skill} className="bg-red-500/10 text-red-400 px-2 py-1 rounded text-xs border border-red-500/20">
+                                                            {skill}
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             </div>
+                                        </div>
+                                    )}
+
+                                    {/* AI Suggestions */}
+                                    <div>
+                                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Tailoring Suggestions</h4>
+                                        <div className="space-y-3">
+                                            {suggestions.map((s, i) => (
+                                                <div key={i} className="bg-[#131b24] p-4 rounded-lg border border-slate-700">
+                                                    <div className="flex gap-2 mb-2">
+                                                        <CheckCircle className="text-blue-400 flex-shrink-0 mt-0.5" size={16} />
+                                                        <span className="text-xs font-bold text-blue-400 uppercase tracking-wider bg-blue-400/10 px-1.5 py-0.5 rounded self-start">{s.category}</span>
+                                                    </div>
+                                                    <p className="text-sm text-slate-300 ml-6">{s.advice}</p>
+                                                </div>
+                                            ))}
+                                            {suggestions.length === 0 && !loading && (
+                                                <p className="text-sm text-slate-500 text-center italic">Run analysis to get suggestions.</p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                             )}
 
-                            {/* Suggestions */}
-                            <div>
-                                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Suggestions ({suggestions.length})</h4>
-                                <div className="space-y-3">
-                                    {suggestions.length > 0 ? suggestions.map((s, i) => (
-                                        <div key={i} className="bg-[#131b24] p-3 rounded-lg border border-slate-700 flex flex-col gap-2">
-                                            <div className="flex gap-2">
-                                                <CheckCircle className="text-blue-400 flex-shrink-0 mt-0.5" size={16} />
-                                                <div>
-                                                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider bg-blue-400/10 px-1.5 py-0.5 rounded">{s.category}</span>
-                                                    <p className="text-sm text-slate-300 mt-1">{s.advice}</p>
-                                                </div>
-                                            </div>
-                                            {s.rephrased_text && (
-                                                <div className="ml-6 bg-[#101922] p-2 rounded text-xs text-slate-400 italic border border-slate-800">
-                                                    "{s.rephrased_text}"
-                                                </div>
-                                            )}
+                            {activeTab === 'jd' && (
+                                <div className="space-y-6 animate-fade-in">
+                                    <h3 className="text-xl font-bold text-white">{jdContext.parsed_data.title}</h3>
+                                    <div className="flex flex-wrap gap-2">
+                                        <span className="bg-slate-700 text-white px-2 py-1 rounded text-xs">{jdContext.parsed_data.company}</span>
+                                        <span className="bg-slate-700 text-white px-2 py-1 rounded text-xs">{jdContext.parsed_data.location}</span>
+                                        {jdContext.parsed_data.salary && <span className="bg-green-900/40 text-green-400 px-2 py-1 rounded text-xs">{jdContext.parsed_data.salary}</span>}
+                                    </div>
+
+                                    <div>
+                                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Description</h4>
+                                        <div className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">
+                                            {jdContext.parsed_data.description}
                                         </div>
-                                    )) : (
-                                        <div className="bg-[#131b24] p-3 rounded-lg border border-slate-700 flex gap-3">
-                                            <CheckCircle className="text-blue-400 flex-shrink-0" size={16} />
-                                            <p className="text-xs text-slate-300">
-                                                {loading ? "Generating suggestions..." : "Run optimization to see AI suggestions tailored to this job."}
-                                            </p>
+                                    </div>
+
+                                    {jdContext.parsed_data.skills?.length > 0 && (
+                                        <div>
+                                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Required Skills</h4>
+                                            <div className="flex flex-wrap gap-2">
+                                                {jdContext.parsed_data.skills.map(s => (
+                                                    <span key={s} className="bg-[#131b24] border border-slate-700 text-slate-300 px-2 py-1 rounded text-xs">
+                                                        {s}
+                                                    </span>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
-                            </div>
-                        </div>
-                    </>
-                )}
+                            )}
+
+                            {activeTab === 'coverLetter' && (
+                                <div className="h-full flex flex-col animate-fade-in">
+                                    <div className="mb-4">
+                                        <button
+                                            onClick={handleGenerateCoverLetter}
+                                            disabled={generatingCL}
+                                            className="w-full bg-[#131b24] hover:bg-slate-700 border border-slate-600 text-white py-2 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            {generatingCL ? <Wand2 className="animate-spin" size={14} /> : <Wand2 size={14} />}
+                                            {generatedCoverLetter ? "Regenerate Cover Letter" : "Generate Cover Letter"}
+                                        </button>
+                                    </div>
+                                    <textarea
+                                        value={generatedCoverLetter}
+                                        onChange={e => setGeneratedCoverLetter(e.target.value)}
+                                        placeholder="Cover letter will appear here..."
+                                        className="flex-1 w-full bg-[#131b24] border border-slate-700 p-4 rounded-xl text-sm text-slate-300 focus:outline-none focus:border-primary resize-none font-sans leading-relaxed"
+                                    />
+                                    <p className="text-xs text-slate-500 mt-2 text-center">You can edit this manually before copying.</p>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
             </aside>
         </div>
     );

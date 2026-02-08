@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Plus, Filter, ArrowUpDown, MoreHorizontal, Calendar, Video, Code } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { APIService } from '../services/api';
 import type { Job, JobDetails } from '../types';
 import JobSearchModal from '../components/JobSearchModal';
 import { useToast } from '../context/ToastContext';
@@ -321,7 +322,7 @@ const Tracker: React.FC<TrackerProps> = ({
                     {/* ... User Avatar ... */}
                     <div className="w-10 h-10 rounded-full bg-slate-700 overflow-hidden border-2 border-slate-600">
                         {user?.profile_photo_url ? (
-                            <img src={user.profile_photo_url} alt="Profile" className="w-full h-full object-cover" />
+                            <img src={APIService.getAssetUrl(user.profile_photo_url)} alt="Profile" className="w-full h-full object-cover" />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white">
                                 {user?.full_name ? user.full_name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'AJ'}

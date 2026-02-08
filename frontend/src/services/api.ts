@@ -6,7 +6,8 @@ import type {
     QuestionsResult,
     AnswerResult,
     TailorResult,
-    CoverLetterResult
+    CoverLetterResult,
+    JobFeed
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -43,10 +44,13 @@ export const APIService = {
         onUnauthorized = callback;
     },
 
-    async parseResume(file: File): Promise<ResumeData> {
+    async parseResume(file: File, rescore: boolean = false): Promise<ResumeData> {
         const formData = new FormData();
         formData.append('file', file);
-        const response = await api.post('/api/resume/parse', formData, {
+        if (rescore) {
+            formData.append('rescore', 'true');
+        }
+        const response = await api.post(`/api/resume/parse?rescore=${rescore}`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
         return response.data;
@@ -55,6 +59,10 @@ export const APIService = {
     async getResumes(): Promise<ResumeData[]> {
         const response = await api.get('/api/resume/s');
         return response.data;
+    },
+
+    async updateResumeText(id: number, text: string): Promise<void> {
+        await api.patch(`/api/resume/${id}`, { raw_text: text });
     },
 
     async extractJob(url: string): Promise<JobDetails> {
@@ -229,5 +237,36 @@ export const APIService = {
 
     async hideFeedJob(jobId: number): Promise<void> {
         await api.delete(`/api/job/feed-result/${jobId}`);
+    },
+
+    async getFeeds(): Promise<JobFeed[]> {
+        const response = await api.get('/api/feeds/');
+        return response.data;
+    },
+
+    async addFeed(url: string, name: string): Promise<JobFeed> {
+        const response = await api.post('/api/feeds/', { url, name });
+        return response.data;
+    },
+
+    async toggleFeed(id: number, isActive: boolean): Promise<JobFeed> {
+        const response = await api.patch(`/api/feeds/${id}`, { is_active: isActive });
+        return response.data;
+    },
+
+    async deleteFeed(id: number): Promise<void> {
+        await api.delete(`/api/feeds/${id}`);
+    },
+
+    async rescoreJobs(): Promise<void> {
+        await api.post('/api/resume/rescore');
+    },
+
+    getAssetUrl(path: string): string {
+        if (!path) return '';
+        if (path.startsWith('http')) return path;
+        const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+        const cleanPath = path.startsWith('/') ? path : `/${path}`;
+        return `${baseUrl}${cleanPath}`;
     },
 };

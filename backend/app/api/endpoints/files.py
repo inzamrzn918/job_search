@@ -33,8 +33,8 @@ async def upload_profile_photo(
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # Construct URL (assuming mounting at /static)
-        photo_url = f"http://localhost:8000/static/uploads/{filename}"
+        # Construct URL (relative path)
+        photo_url = f"/static/uploads/{filename}"
 
         # Update user profile
         await db.execute(

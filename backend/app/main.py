@@ -9,11 +9,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.endpoints import jobs, resume, coach, auth
 from app.core.database import init_db
 from app.core.logging_middleware import LoggingMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 app = FastAPI(title="JobSearch API")
 
 # Add logging middleware globally
 app.add_middleware(LoggingMiddleware)
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 import logging
 
@@ -27,9 +30,12 @@ async def startup_event():
     logger.info("Database Initialized")
 
 # Configure CORS
+# In production, this should be restricted to the domain where the frontend is hosted
+origins = os.getenv("ALLOWED_ORIGINS", "http://localhost,http://localhost:3000,http://localhost:8000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -49,6 +55,8 @@ from app.api.endpoints import files, notifications, two_factor
 app.include_router(files.router, prefix="/api", tags=["files"])
 app.include_router(notifications.router, prefix="/api", tags=["notifications"])
 app.include_router(two_factor.router, prefix="/api", tags=["2fa"])
+from app.api.endpoints import feeds
+app.include_router(feeds.router, prefix="/api/feeds", tags=["feeds"])
 
 from fastapi.staticfiles import StaticFiles
 # Mount static directory to serve uploads

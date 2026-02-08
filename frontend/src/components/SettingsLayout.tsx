@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Shield, Sliders, CreditCard } from 'lucide-react';
+import { User, Shield, Sliders } from 'lucide-react';
 
 interface SettingsLayoutProps {
     activeTab: 'profile' | 'security' | 'preferences' | 'billing';
@@ -12,7 +12,7 @@ const SettingsLayout: React.FC<SettingsLayoutProps> = ({ activeTab, setActiveTab
         { id: 'profile', label: 'Profile', icon: User },
         { id: 'security', label: 'Security', icon: Shield },
         { id: 'preferences', label: 'Preferences', icon: Sliders },
-        { id: 'billing', label: 'Billing', icon: CreditCard },
+        // { id: 'billing', label: 'Billing', icon: CreditCard },
     ] as const;
 
     return (
@@ -23,15 +23,15 @@ const SettingsLayout: React.FC<SettingsLayoutProps> = ({ activeTab, setActiveTab
                 <p className="text-sm text-slate-400">Manage your account preferences and billing</p>
             </header>
 
-            <main className="flex gap-8 p-8 max-w-[1600px] mx-auto">
+            <main className="flex flex-col lg:flex-row gap-8 p-4 lg:p-8 max-w-[1600px] mx-auto">
                 {/* Sidebar Navigation */}
-                <aside className="w-64 flex-shrink-0 hidden lg:block">
-                    <nav className="space-y-1">
+                <aside className="w-full lg:w-64 flex-shrink-0 overflow-x-auto">
+                    <nav className="flex lg:flex-col space-x-2 lg:space-x-0 lg:space-y-1 pb-2 lg:pb-0">
                         {navItems.map((item) => (
                             <button
                                 key={item.id}
                                 onClick={() => setActiveTab(item.id)}
-                                className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === item.id
+                                className={`flex-shrink-0 lg:w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === item.id
                                     ? 'bg-blue-500/10 text-blue-500'
                                     : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
                                     }`}
@@ -44,8 +44,17 @@ const SettingsLayout: React.FC<SettingsLayoutProps> = ({ activeTab, setActiveTab
                 </aside>
 
                 {/* Content Area */}
-                <div className="flex-1">
-                    {children}
+                <div className="flex-1 min-w-0">
+                    <React.Suspense fallback={
+                        <div className="flex items-center justify-center h-64 border border-slate-800 rounded-xl bg-[#1a222c]">
+                            <div className="flex flex-col items-center gap-3 text-slate-500">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                                <span>Loading settings...</span>
+                            </div>
+                        </div>
+                    }>
+                        {children}
+                    </React.Suspense>
                 </div>
             </main>
         </div>
